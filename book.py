@@ -1,15 +1,34 @@
 import streamlit as st
 import random
-import openai
 from openai import AzureOpenAI
-api_key = None
-if api_key is None or api_key =="":
-    api_key = st.text_input("API key를 넣어주세요",type="password")
-client = AzureOpenAI(
-    azure_endpoint = "https://zion-aoai.openai.azure.com/",
-    api_key = api_key,
-    api_version = "2024-02-15-preview",
-) 
+
+# API 키 입력 받기
+if "api_key" not in st.session_state:
+    st.session_state["api_key"] = ""
+
+api_key = st.text_input("API key를 넣어주세요", type="password", value=st.session_state["api_key"])
+
+# API 키 저장
+if api_key:
+    st.session_state["api_key"] = api_key
+
+# API 키 확인
+if not st.session_state["api_key"]:
+    st.warning("API key를 입력해주세요.")
+    st.stop()
+
+# Azure OpenAI 클라이언트 생성
+try:
+    client = AzureOpenAI(
+        azure_endpoint="https://zion-aoai.openai.azure.com/",
+        api_key=st.session_state["api_key"],
+        api_version="2024-02-15-preview",
+    )
+    st.success("Azure OpenAI 클라이언트가 성공적으로 생성되었습니다! 🚀")
+
+except Exception as e:
+    st.error(f"클라이언트 생성 중 오류 발생: {e}")
+    st.stop()
 
 st.title("배정")
 st.write("")
@@ -67,14 +86,27 @@ with col3:
     st.write("")
     st.markdown("#### 이름 삼행시")
     
-    response = client.chat.completions.create(
-        model = 'gpt-4o',
-        messages = [{"role":"system","content":"""너는 student 이름으로 우리 모두가 빵터질만한 삼행시 만들어줘. 웃음폭탄 기대할게.아재개그 버전으로.
-                     아래는 샘플이야. 학생이름 허시온. 
-                     - 허 : 허시온
-                     - 시 : 시끄러 못살곘네..
-                     - 온 : 온 동네방네 방구 끼고 다니지 마라... """},
-                    {"role":"user","content":f"학생이름은 {student_name}"}],
-        stream= True
-    )
-    st.write_stream(response)
+    if student_name:
+        deployment_name = "gpt-4o"  # ⚠️ 실제 Azure 배포된 모델 이름으로 변경해야 함
+
+        try:
+            response = client.chat.completions.create(
+                model=deployment_name,  # ✅ Azure는 'gpt-4o'가 아니라 배포된 모델 이름을 사용해야 함
+                messages=[
+                    {"role": "system", "content": """너는 student 이름으로 우리 모두가 빵터질만한 삼행시 만들어줘. 
+                    웃음폭탄 기대할게. 아재개그 버전으로. 아래는 샘플이야. 학생이름 허시온. 
+                    - 허 : 허시온
+                    - 시 : 시끄러 못살곘네..
+                    - 온 : 온 동네방네 방구 끼고 다니지 마라... """},
+                    {"role": "user", "content": f"학생이름은 {student_name}"}
+                ],
+            stream=True  # ✅ 스트리밍 응답 활성화
+            )
+            st.write_stream(response)
+        except Exception as e:
+            st.write("이름삼행시를 지을 수 없습니다. azure openai client 를 확인해주세요.")
+
+    else:
+        st.warning("학생 이름을 입력해주세요.")
+
+    
